@@ -18,11 +18,9 @@ public class Product {
 
     private BigDecimal price;
 
-    private Integer discount;
+    private BigDecimal discount;
     
     private Integer tax;
 
-    private BigDecimal total;
-
-    private String totalText;
+    private String total;
 }

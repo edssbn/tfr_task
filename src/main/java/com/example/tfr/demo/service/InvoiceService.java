@@ -6,39 +6,75 @@ import com.example.tfr.demo.model.Invoice;
 import com.example.tfr.demo.model.Product;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class InvoiceService {
 
-    public List<Invoice> createInvoice(List<Product> products) {
-        calculateTotal(products);
+    public List<Invoice> createInvoices(List<Product> products) {
+        List<Invoice> invoices = new ArrayList<>();
 
-        List<Invoice> invoices = new ArrayList<Invoice>();
+        while (!products.isEmpty()) {
+            BigDecimal total = BigDecimal.ZERO;
+            List<Product> singleInvoiceProducts = new ArrayList<>();
+            for (Product product : products) {
+                BigDecimal productTotal = calculateProductTotal(product);
+                total = total.add(productTotal);
+                if (total.compareTo(new BigDecimal(500)) < 0 || singleInvoiceProducts.isEmpty()) {
+                    singleInvoiceProducts.add(product);
+                } else {
+                    total = total.subtract(productTotal);
+                }
+            }
+            invoices.add(generateInvoice(singleInvoiceProducts));
+            products.removeAll(singleInvoiceProducts);
+
+        }
+
         return invoices;
     }
 
-    private void calculateTotal(List<Product> products) {
+    private Invoice generateInvoice(List<Product> products) {
+
+        BigDecimal invSubtotal = BigDecimal.ZERO;
+        BigDecimal invTax = BigDecimal.ZERO;
+        BigDecimal invTotal = BigDecimal.ZERO;
+
+        Invoice invoice = new Invoice();
+
         for (Product product : products) {
-            BigDecimal subtotal = product.getPrice().multiply(BigDecimal.valueOf(product.getQuantity()));
-            BigDecimal vat = subtotal.multiply(BigDecimal.valueOf(100).divide(BigDecimal.valueOf(product.getTax())));
-            BigDecimal total = subtotal.add(vat);
-            product.setTotal(total);
-            product.setTotalText(bigDecimalFormatter(subtotal) + " + " + bigDecimalFormatter(vat) + " = "
-                    + bigDecimalFormatter(total));
+
+            BigDecimal subtotal = BigDecimal.valueOf(product.getQuantity())
+                    .multiply(product.getPrice().subtract(product.getDiscount()));
+            BigDecimal tax = subtotal.multiply(BigDecimal.valueOf(product.getTax()).divide(BigDecimal.valueOf(100)));
+            BigDecimal total = subtotal.add(tax);
+
+            subtotal = subtotal.setScale(2, RoundingMode.CEILING);
+            tax = tax.setScale(2, RoundingMode.CEILING);
+            total = total.setScale(2, RoundingMode.CEILING);
+
+            product.setTotal((subtotal) + " + " + (tax) + " = " + (total));
+
+            invSubtotal = invSubtotal.add(subtotal);
+            invTax = invTax.add(tax);
+            invTotal = invTotal.add(total);
         }
+
+        invoice.setProducts(products);
+        invoice.setSubtotal(invSubtotal);
+        invoice.setTax(invTax);
+        invoice.setTotal(invTotal);
+
+        return invoice;
     }
 
-    public static String bigDecimalFormatter (BigDecimal num){
-        String ret = null;
-        try {
-            ret = num.toBigIntegerExact().toString();
-        } catch (ArithmeticException e){
-            num = num.setScale(2,BigDecimal.ROUND_UP); 
-            ret = num.toPlainString();
-        }
-        return ret;
+    private BigDecimal calculateProductTotal(Product product) {
+        BigDecimal subtotal = BigDecimal.valueOf(product.getQuantity())
+                .multiply(product.getPrice().subtract(product.getDiscount()));
+        BigDecimal tax = subtotal.multiply(BigDecimal.valueOf(product.getTax()).divide(BigDecimal.valueOf(100)));
+        return subtotal.add(tax);
     }
 
 }

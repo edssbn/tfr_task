@@ -19,7 +19,7 @@ public class InvoiceController {
     }
 
     @PostMapping("/invoice")
-    public List<Invoice> createInvoice(@RequestBody List<Product> products) {
-        return invoiceService.createInvoice(products);
+    public List<Invoice> createInvoices(@RequestBody List<Product> products) {
+        return invoiceService.createInvoices(products);
     }
 }
