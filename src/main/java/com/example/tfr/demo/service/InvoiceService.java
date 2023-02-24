@@ -16,25 +16,40 @@ public class InvoiceService {
     public List<Invoice> createInvoices(List<Product> products) {
 
         List<Invoice> invoices = new ArrayList<>();
+        boolean isPriorityProduct = false;
+        Product priorityProduct = new Product();
 
         while (!products.isEmpty()) {
             BigDecimal total = BigDecimal.ZERO;
             List<Product> singleInvoiceProducts = new ArrayList<>();
-            for (Product product : products) {
-                BigDecimal productTotal = calculateProductTotal(product);
-                total = total.add(productTotal);
-                if (total.compareTo(new BigDecimal(500)) < 0 || singleInvoiceProducts.isEmpty()) {
-                    if (product.getQuantity() > 50) {
-                        product.setQuantity(product.getQuantity() - 50);
-                        singleInvoiceProducts.add(new Product(product.getName(), 50, product.getPrice(),
-                                product.getDiscount(), product.getTax(), ""));
+            if (isPriorityProduct && singleInvoiceProducts.isEmpty()) {
+                isPriorityProduct = false;
+                singleInvoiceProducts.add(priorityProduct);
+            } else {
+                for (Product product : products) {
+                    if (calculateProductTotal(product, 1).compareTo(new BigDecimal(500)) > 0) {
+                        isPriorityProduct = true;
+                        priorityProduct = product;
                     } else {
-                        singleInvoiceProducts.add(product);
+                        int quantity = determineQuantity(product, total);
+                        BigDecimal productTotal = calculateProductTotal(product, quantity);
+                        total = total.add(productTotal);
+                        if (total.compareTo(new BigDecimal(500)) < 0) {
+                            if (product.getQuantity() > quantity) {
+                                product.setQuantity(product.getQuantity() - quantity);
+                                singleInvoiceProducts
+                                        .add(new Product(product.getDescription(), quantity, product.getPrice(),
+                                                product.getDiscount(), product.getTax(), ""));
+                            } else {
+                                singleInvoiceProducts.add(product);
+                            }
+                        } else {
+                            total = total.subtract(productTotal);
+                        }
                     }
-                } else {
-                    total = total.subtract(productTotal);
                 }
             }
+
             invoices.add(generateInvoice(singleInvoiceProducts));
             products.removeAll(singleInvoiceProducts);
         }
@@ -54,11 +69,11 @@ public class InvoiceService {
             BigDecimal tax = subtotal.multiply(BigDecimal.valueOf(product.getTax()).divide(BigDecimal.valueOf(100)));
             BigDecimal total = subtotal.add(tax);
 
-            subtotal = subtotal.setScale(2, RoundingMode.CEILING);
-            tax = tax.setScale(2, RoundingMode.CEILING);
-            total = total.setScale(2, RoundingMode.CEILING);
+            subtotal = subtotal.setScale(2, RoundingMode.HALF_EVEN);
+            tax = tax.setScale(2, RoundingMode.HALF_EVEN);
+            total = total.setScale(2, RoundingMode.HALF_EVEN);
 
-            product.setTotal((subtotal) + " + " + (tax) + " = " + (total));
+            product.setTotal(subtotal + " + " + tax + " = " + total);
 
             invSubtotal = invSubtotal.add(subtotal);
             invTax = invTax.add(tax);
@@ -68,13 +83,25 @@ public class InvoiceService {
         return new Invoice(products, invSubtotal, invTax, invTotal);
     }
 
-    private BigDecimal calculateProductTotal(Product product) {
+    private BigDecimal calculateProductTotal(Product product, int quantity) {
 
-        Integer quantity = Math.min(50, product.getQuantity());
         BigDecimal subtotal = BigDecimal.valueOf(quantity)
                 .multiply(product.getPrice().subtract(product.getDiscount()));
         BigDecimal tax = subtotal.multiply(BigDecimal.valueOf(product.getTax()).divide(BigDecimal.valueOf(100)));
+
         return subtotal.add(tax);
+    }
+
+    private int determineQuantity(Product product, BigDecimal total) {
+
+        int quantity = 1;
+        for (int i = 1; i <= 50 && i <= product.getQuantity(); i++) {
+            if (total.add(calculateProductTotal(product, i)).compareTo(new BigDecimal(500)) < 0) {
+                quantity = i;
+            }
+        }
+
+        return quantity;
     }
 
 }

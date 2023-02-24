@@ -12,15 +12,15 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Product {
-    private String name;
+    private String description;
 
-    private Integer quantity;
+    private int quantity;
 
     private BigDecimal price;
 
     private BigDecimal discount;
     
-    private Integer tax;
+    private int tax;
 
     private String total;
 }
