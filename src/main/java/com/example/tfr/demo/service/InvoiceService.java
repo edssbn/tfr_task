@@ -22,7 +22,7 @@ public class InvoiceService {
         while (!products.isEmpty()) {
             BigDecimal total = BigDecimal.ZERO;
             List<Product> singleInvoiceProducts = new ArrayList<>();
-            if (isPriorityProduct && singleInvoiceProducts.isEmpty()) {
+            if (isPriorityProduct) {
                 isPriorityProduct = false;
                 singleInvoiceProducts.add(priorityProduct);
             } else {
@@ -32,19 +32,21 @@ public class InvoiceService {
                         priorityProduct = product;
                     } else {
                         int quantity = determineQuantity(product, total);
-                        BigDecimal productTotal = calculateProductTotal(product, quantity);
-                        total = total.add(productTotal);
-                        if (total.compareTo(new BigDecimal(500)) < 0) {
-                            if (product.getQuantity() > quantity) {
-                                product.setQuantity(product.getQuantity() - quantity);
-                                singleInvoiceProducts
-                                        .add(new Product(product.getDescription(), quantity, product.getPrice(),
-                                                product.getDiscount(), product.getTax(), ""));
+                        if (quantity > 0) {
+                            BigDecimal productTotal = calculateProductTotal(product, quantity);
+                            total = total.add(productTotal);
+                            if (total.compareTo(new BigDecimal(500)) <= 0) {
+                                if (product.getQuantity() > quantity) {
+                                    product.setQuantity(product.getQuantity() - quantity);
+                                    singleInvoiceProducts
+                                            .add(new Product(product.getDescription(), quantity, product.getPrice(),
+                                                    product.getDiscount(), product.getTax(), ""));
+                                } else {
+                                    singleInvoiceProducts.add(product);
+                                }
                             } else {
-                                singleInvoiceProducts.add(product);
+                                total = total.subtract(productTotal);
                             }
-                        } else {
-                            total = total.subtract(productTotal);
                         }
                     }
                 }
@@ -94,14 +96,10 @@ public class InvoiceService {
 
     private int determineQuantity(Product product, BigDecimal total) {
 
-        int quantity = 1;
-        for (int i = 1; i <= 50 && i <= product.getQuantity(); i++) {
-            if (total.add(calculateProductTotal(product, i)).compareTo(new BigDecimal(500)) < 0) {
-                quantity = i;
-            }
-        }
+        BigDecimal[] productNumber = new BigDecimal(500).subtract(total).divideAndRemainder(calculateProductTotal(product, 1));
+        int quantity = Math.min(productNumber[0].intValue(), product.getQuantity());
 
-        return quantity;
+        return Math.min(quantity, 50);
     }
 
 }
